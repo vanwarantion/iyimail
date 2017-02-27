@@ -1,10 +1,14 @@
 from __future__ import unicode_literals
 from django.utils.translation import ugettext_lazy as _
-from django.template.loader import render_to_string
+from django.core.mail import send_mail
 from django.template import Template, Context
+from django.conf import settings
+from datetime import datetime
 import re
 
 from django.db import models
+
+FROM_EMAIL = getattr(settings, "DEFAULT_FROM_EMAIL", "admin@example.com")
 
 class Email(models.Model):
     creation = models.DateTimeField(verbose_name=_("Created At"), auto_now_add=True)
@@ -13,6 +17,19 @@ class Email(models.Model):
     message = models.TextField(_("Message"), blank=True)
     html_message = models.TextField(_("HTML Message"), blank=True)
     sent_at = models.DateTimeField(verbose_name=_("Sent At"), blank=True, null=True)
+
+    def get_recipients(self):
+        return [self.recipient]
+
+    def send(self):
+        send_mail(
+            subject=self.subject,
+            message=self.message,
+            from_email=FROM_EMAIL,
+            recipient_list=self.get_recipients(),
+            html_message=self.html_message)
+        self.sent_at = datetime.utcnow()
+        self.save()
 
 class EmailTemplate(models.Model):
     creation = models.DateTimeField(verbose_name=_("Created At"), auto_now_add=True)
