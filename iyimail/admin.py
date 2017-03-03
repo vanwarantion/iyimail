@@ -25,6 +25,15 @@ class EmailAdmin(admin.ModelAdmin):
     list_display = ['creation', 'recipient', 'sent_at', 'subject']
     search_fields = ['recipient', 'subject']
     list_filter = [SentEmailFilter]
+    actions = ['send_email']
+
+    def send_email(self, request, queryset):
+        rvc = 0
+        for i in queryset:
+            i.send()
+            rvc =+ 1
+        self.message_user(request, "Sent %d emails." % (rvc))
+    send_email.short_description = "Send selected emails"
 
 admin.site.register(Email, EmailAdmin)
 
@@ -33,17 +42,24 @@ class TemplateAdmin(admin.ModelAdmin):
     list_display = ['name', 'creation', 'subject']
     search_fields = ['subject', 'message', 'name']
 
-
 admin.site.register(EmailTemplate, TemplateAdmin)
 
 class RuleAdmin(admin.ModelAdmin):
     model = RuleTemplate
     form = RuleForm
-    list_display = ['template', 'trigger_model']
+    list_display = ['template', 'trigger_model', 'total_sent']
     preview_context = None
     list_filter = (
         ('template', admin.RelatedOnlyFieldListFilter),
     )
+    actions = ['make_mails']
+
+    def make_mails(self, request, queryset):
+        mails_created = 0
+        for i in queryset:
+            mails_created += len(i.create_emails())
+        self.message_user(request, "Created %d emails from %d rules." % (mails_created, queryset.count()))
+    make_mails.short_description = "Create Emails"
 
     def triggered_object_count(self, obj):
         return len(obj.get_triggered_objects())
@@ -67,6 +83,11 @@ class RuleAdmin(admin.ModelAdmin):
     preview.allow_tags = True
     preview.short_description = "Example Email"
 
+    def total_sent(self, obj):
+        return obj.executionlog_set.count()
+    total_sent.allow_tags = True
+    total_sent.short_description = "Total Sent"
+
     def get_readonly_fields(self, request, obj=None):
         rf = []
         if hasattr(obj, 'pk'):
@@ -74,6 +95,7 @@ class RuleAdmin(admin.ModelAdmin):
             if self.triggered_object_count(obj) > 0:
                 rf.append('example_context')
                 rf.append('preview')
+            rf.append('total_sent')
         return rf
 
 admin.site.register(RuleTemplate, RuleAdmin)

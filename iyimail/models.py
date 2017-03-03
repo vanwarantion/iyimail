@@ -156,6 +156,9 @@ class RuleTemplate(models.Model):
                             params={'a': self.trigger_query_str, 'c': str(req_context)}
                         )
 
+    def __str__(self):
+        return u"%d: %s" % (self.id, self.template.name)
+
     def get_absolute_url(self):
         return reverse('rule-preview', args=[str(self.id)])
 
@@ -208,9 +211,9 @@ class RuleTemplate(models.Model):
         rv = []
         ex_mails_list = self.executionlog_set.values_list('email', flat=True)
         for i in self.get_triggered_objects():
-            # if recipient not in execution log
             rcpt_address = get_email(i)
             if rcpt_address in ex_mails_list:
+                # Skip if recipient in execution log
                 continue
             context_method = getattr(i, self.context_method_name, None)
             if callable(context_method):
@@ -220,5 +223,6 @@ class RuleTemplate(models.Model):
         return rv
 
 class ExecutionLog(models.Model):
+    creation = models.DateTimeField(verbose_name=_("Created At"), auto_now_add=True)
     rule = models.ForeignKey('RuleTemplate')
     email = models.OneToOneField('Email')
