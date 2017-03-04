@@ -44,13 +44,31 @@ class TemplateAdmin(admin.ModelAdmin):
 
 admin.site.register(EmailTemplate, TemplateAdmin)
 
+class ActiveRuleFilter(admin.SimpleListFilter):
+    title = _("Status")
+    parameter_name = "active"
+
+    def lookups(self, request, model_admin):
+        return (
+            ('Yes', _("Active")),
+            ('No', _("Inactive")),
+        )
+
+    def queryset(self, request, queryset):
+        t = timezone.now()
+        if self.value() == "Yes":
+            return queryset.exclude(disable_at__lte=t).filter(activate_at__lte=t)
+        if self.value() == "No":
+            return queryset.filter(disable_at__lte=t).filter(activate_at__gte=t)
+
 class RuleAdmin(admin.ModelAdmin):
     model = RuleTemplate
     form = RuleForm
-    list_display = ['template', 'trigger_model', 'total_sent']
+    list_display = ['template', 'trigger_model', 'total_sent', 'is_active']
     preview_context = None
     list_filter = (
         ('template', admin.RelatedOnlyFieldListFilter),
+        ActiveRuleFilter,
     )
     actions = ['make_mails']
 
@@ -60,6 +78,11 @@ class RuleAdmin(admin.ModelAdmin):
             mails_created += len(i.create_emails())
         self.message_user(request, "Created %d emails from %d rules." % (mails_created, queryset.count()))
     make_mails.short_description = "Create Emails"
+
+    def is_active(self, obj):
+        return obj.is_active()
+    is_active.allow_tags = True
+    is_active.short_description = "Active"
 
     def triggered_object_count(self, obj):
         return len(obj.get_triggered_objects())

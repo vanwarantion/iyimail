@@ -32,7 +32,7 @@ class Email(models.Model):
             from_email=FROM_EMAIL,
             recipient_list=self.get_recipients(),
             html_message=self.html_message)
-        self.sent_at = datetime.utcnow()
+        self.sent_at = timezone.now()
         self.save()
 
 class EmailTemplate(models.Model):
@@ -119,6 +119,8 @@ class RuleTemplate(models.Model):
                                            help_text=_("Method name that returns context required by Email Template"))
     email_address_field = models.CharField(max_length=500, default='email', verbose_name=_("Email Address Field"),
                                            help_text=_("Field name that returns Email address of the recipient."))
+    activate_at = models.DateTimeField(verbose_name=_("Activate At"))
+    disable_at = models.DateTimeField(verbose_name=_("Disable At"), null=True, blank=True)
 
 
     class Meta:
@@ -158,6 +160,15 @@ class RuleTemplate(models.Model):
 
     def __str__(self):
         return u"%d: %s" % (self.id, self.template.name)
+
+    def is_active(self):
+        if self.disable_at is None:
+            return True
+        t = timezone.now()
+        if self.activate_at < t:
+            if self.activate_at > self.disable_at:
+                return True
+        return False
 
     def get_absolute_url(self):
         return reverse('rule-preview', args=[str(self.id)])
