@@ -1,2 +1,2 @@
 # iyimail
-Simple app to manage emails in django
+Simple app to manage emails in django.
